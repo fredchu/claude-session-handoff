@@ -1,0 +1,18 @@
+{
+  "name": "claude-session-handoff",
+  "version": "1.0.0",
+  "description": "A Claude Code skill for persistent session memory via Apple Notes — multi-agent, three-tier architecture",
+  "keywords": [
+    "claude-code",
+    "skill",
+    "session-handoff",
+    "memory",
+    "apple-notes"
+  ],
+  "author": "Fred Chu",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fredchu/claude-session-handoff.git"
+  }
+}
