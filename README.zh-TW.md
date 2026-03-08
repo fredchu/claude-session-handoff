@@ -2,6 +2,8 @@
 
 讓 Claude Code 擁有跨 session 記憶的技能，透過 Apple Notes 實現。
 
+> **僅限 macOS** — 需要 Apple Notes 和 AppleScript。
+
 **[English README](README.md)**
 
 ## 問題
@@ -63,7 +65,15 @@ claude mcp add --scope user apple-notes -- npx -y apple-notes-mcp
 
 ### 3. 設定 SessionStart hook
 
-在 `.claude/settings.json` 加入 hook，讓 session 開始時自動讀取交接筆記：
+複製範例 hook 腳本，設定你的 agent 名稱：
+
+```bash
+cp hooks/session-start.sh ~/.claude/hooks/session-start.sh
+chmod +x ~/.claude/hooks/session-start.sh
+# 編輯腳本裡的 AGENT_ID 和 NOTES_FOLDER
+```
+
+加入 `.claude/settings.json`：
 
 ```json
 {
@@ -71,21 +81,26 @@ claude mcp add --scope user apple-notes -- npx -y apple-notes-mcp
     "SessionStart": [
       {
         "type": "command",
-        "command": "your-script-to-read-handoff-notes.sh"
+        "command": "~/.claude/hooks/session-start.sh"
       }
     ]
   }
 }
 ```
 
-腳本需搜尋 Apple Notes 裡的交接筆記，把內容輸出到 stdout。
+### 4. 在 CLAUDE.md 加入設定和觸發規則
 
-### 4. 在 CLAUDE.md 加入觸發規則
-
-在專案或使用者層級的 `CLAUDE.md` 加入：
+在使用者層級的 `CLAUDE.md`（`~/.claude/CLAUDE.md`）加入：
 
 ```markdown
-## Session Handoff
+## Session Handoff Config
+- Agent ID: Main
+- Notes folder: Claude Workspace
+- Other Agents:（留空代表單 agent 模式）
+- Private budget: 1500 chars
+- Shared budget: 1000 chars
+
+## Session Handoff Rules
 - 用戶說「收工」「bye」「結束」「handoff」時 → 執行 `/session-handoff`
 - 即使「還沒做什麼事」也不可跳過
 ```

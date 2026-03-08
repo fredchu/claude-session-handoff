@@ -2,6 +2,8 @@
 
 A Claude Code skill that gives your AI persistent memory across sessions using Apple Notes.
 
+> **macOS only** — requires Apple Notes and AppleScript.
+
 **[繁體中文版 README](README.zh-TW.md)**
 
 ## The Problem
@@ -63,7 +65,15 @@ claude mcp add --scope user apple-notes -- npx -y apple-notes-mcp
 
 ### 3. Configure SessionStart hook
 
-Add a hook to `.claude/settings.json` that reads your handoff notes at session start:
+Copy the example hook and set your agent name:
+
+```bash
+cp hooks/session-start.sh ~/.claude/hooks/session-start.sh
+chmod +x ~/.claude/hooks/session-start.sh
+# Edit AGENT_ID and NOTES_FOLDER in the script
+```
+
+Add to `.claude/settings.json`:
 
 ```json
 {
@@ -71,21 +81,26 @@ Add a hook to `.claude/settings.json` that reads your handoff notes at session s
     "SessionStart": [
       {
         "type": "command",
-        "command": "your-script-to-read-handoff-notes.sh"
+        "command": "~/.claude/hooks/session-start.sh"
       }
     ]
   }
 }
 ```
 
-The script should search Apple Notes for your handoff notes and output their content to stdout.
+### 4. Add config and trigger rules to CLAUDE.md
 
-### 4. Add trigger rules to CLAUDE.md
-
-Add to your project or user `CLAUDE.md`:
+Add to your user-level `CLAUDE.md` (`~/.claude/CLAUDE.md`):
 
 ```markdown
-## Session Handoff
+## Session Handoff Config
+- Agent ID: Main
+- Notes folder: Claude Workspace
+- Other Agents: (leave empty for single-agent mode)
+- Private budget: 1500 chars
+- Shared budget: 1000 chars
+
+## Session Handoff Rules
 - When user says "bye", "done", "handoff", "收工", or "結束" → run `/session-handoff`
 - Do NOT skip even if "nothing was done" this session
 ```
