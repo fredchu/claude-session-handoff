@@ -1,6 +1,6 @@
 ---
 name: session-handoff
-description: Save current session state to Apple Notes at session end. Triggers on "handoff", "bye", "done", "收工", "結束". Multi-agent architecture with private (per-agent) + shared (cross-agent) notes. Three-tier memory system: Active → Archive → Long-term. Use this skill whenever the user wants to end a session, save progress, wrap up work, or says anything indicating they're done for now.
+description: "Save current session state to Apple Notes at session end. Triggers on handoff, bye, done, wrap up, or Chinese equivalents. Multi-agent architecture with private (per-agent) and shared (cross-agent) notes. Three-tier memory: Active, Archive, Long-term. Use whenever the user wants to end a session, save progress, or says anything indicating they are done for now."
 ---
 
 # Session Handoff — Multi-Agent Three-Tier Memory System
