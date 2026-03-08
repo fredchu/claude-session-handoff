@@ -47,10 +47,10 @@ Session 結束
 
 ## 安裝
 
-### 1. 複製 skill
+### 1. 安裝 skill
 
 ```bash
-cp -r .claude/skills/session-handoff ~/.claude/skills/
+npx skills add fredchu/claude-session-handoff
 ```
 
 ### 2. 安裝 Apple Notes MCP

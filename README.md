@@ -47,10 +47,10 @@ Single-agent mode is also supported — just skip the shared note.
 
 ## Installation
 
-### 1. Copy the skill
+### 1. Install the skill
 
 ```bash
-cp -r .claude/skills/session-handoff ~/.claude/skills/
+npx skills add fredchu/claude-session-handoff
 ```
 
 ### 2. Install Apple Notes MCP
