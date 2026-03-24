@@ -128,9 +128,57 @@ The budget exists because these notes get injected into every session start. Kee
 2. **Distill patterns** → scan Archive for recurring cross-agent issues
 3. **Clean Archive** → keep only the most recent 5 entries
 
-### Phase 4: Spot Check (Real-time Detection)
+### Phase 4: Lesson Extraction (Session 回顧)
 
-When a clear lesson is learned during the session, suggest writing it to long-term memory.
+在 Phase 2 寫完 handoff 後，回顧本次 session 是否有值得記錄的教訓。
+
+**偵測信號（任一命中即觸發）：**
+
+| 信號 | 代表什麼 |
+|------|---------|
+| 同一檔案 Edit 3+ 次才做對 | 踩坑、反覆試錯 |
+| Bash 指令失敗 → 修正 → 再跑 | debug 循環 |
+| 用戶糾正做法（「不是這樣」「用 X 不要 Y」） | 偏好/地雷 |
+| WebSearch 查了某技術問題才解決 | 知識缺口 |
+| 嘗試了方案 A 失敗、換方案 B 才成功 | 技術選型教訓 |
+
+**流程：**
+
+1. **掃描**：回顧 session 中的 error→fix 循環、用戶糾正、方案切換
+2. **提煉**：每個教訓用一句話描述 root cause + 正確做法
+3. **判斷歸屬**：教訓屬於哪個專案？
+   - 有明確專案 → `company/<project>/lessons/YYYY-MM-DD-<topic>.md`
+   - 通用性高（工具用法、Claude Code 行為）→ MEMORY.md 或 `記憶庫/語義記憶/`
+4. **詢問用戶**：「這次 session 有 N 個教訓值得記：[列表]。要存嗎？」
+   - 用戶說好 → 寫入
+   - 用戶說不用 → 跳過
+5. **跨專案 Promote 檢查**：寫入教訓後，grep `company/*/lessons/` 找相似 pattern
+   - 同類教訓在 **2+ 專案** 出現 → 建議 promote 到 MEMORY.md
+   - Promote 後在原始 lessons 檔加一行 `> ⬆️ 已 promote 到 MEMORY.md`
+
+**教訓檔格式（company lessons）：**
+
+```markdown
+# 標題 — 一句話結論
+
+> 日期：YYYY/MM/DD
+> 專案：<project name>
+> 分支/路徑：（如適用）
+
+## Root Cause
+一段話說明為什麼會踩坑。
+
+## 正確做法
+下次遇到同類問題該怎麼做。
+
+## 證據
+- 本次 session 中的具體事件（簡述）
+```
+
+**不記的東西：**
+- 純粹的進度更新（那是 handoff 的事）
+- 已經寫在 CLAUDE.md 裡的規則
+- 一次性的操作細節（已經在 git history 裡）
 
 ## Note Format
 
