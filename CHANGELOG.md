@@ -1,3 +1,15 @@
+## 1.3.0 - 2026-04-27
+
+### Changes
+- Add macOS 26 HTML format rules table (h1/h2/h3 mapping, code block, list, blank line)
+- Switch note creation from MCP `create-note` to AppleScript `make new note` (avoids title duplication)
+- Switch note updates to prefer AppleScript `set body of` (MCP `update-note` allowed as fallback)
+- Replace `<h2>` section headers with `<div><b>...</b></div>` to avoid font-size infection on older macOS
+
+### Documentation
+- Document macOS 26 HTML format requirements (Pro CC must follow)
+- Note that h1/h2/h3 font-size infection was an OS bug fixed in current macOS
+
 ## 1.2.0 - 2026-03-25
 
 ### Features

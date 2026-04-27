@@ -1,3 +1,24 @@
+## 1.3.0 - 2026-04-27
+
+### 變更
+- 新增 macOS 26 HTML 格式規則表（h1/h2/h3、code block、清單、空行對照）
+- 建立筆記改用 AppleScript `make new note`（取代 MCP `create-note`，避免標題重複）
+- 更新筆記優先使用 AppleScript `set body of`（MCP `update-note` 可作為備用）
+- 段落標題從 `<h2>` 改為 `<div><b>...</b></div>`，避免舊版 macOS 的 font-size 感染
+
+### 文件
+- 補上 Pro CC 必遵守的 macOS 26 HTML 格式要求
+- 註明 h1/h2/h3 font-size 感染是舊版 macOS Tahoe 的 OS bug，已修復
+
+## 1.2.0 - 2026-03-25
+
+### 新功能
+- 將 Phase 4 從單純的 Spot Check 擴充為完整 Lesson Extraction 系統
+- 新增 5 個偵測信號：反覆編輯、bash 失敗循環、用戶糾正、WebSearch 缺口、方案切換
+- 新增 5 步驟提煉流程：掃描 → 提煉 → 判斷歸屬 → 詢問用戶 → 跨專案 promote
+- 新增結構化教訓檔格式
+- 新增跨專案 promote 檢查（同類教訓出現在 2+ 專案時建議 promote 到 MEMORY.md）
+
 ## 1.1.0 - 2026-03-08
 
 ### 新功能
