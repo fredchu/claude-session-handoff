@@ -1,6 +1,6 @@
 ---
 name: session-handoff
-description: "Save current session state to Apple Notes at session end. Triggers on handoff, bye, done, wrap up, or Chinese equivalents. Multi-agent architecture with private (per-agent) and shared (cross-agent) notes. Three-tier memory: Active, Archive, Long-term. Use whenever the user wants to end a session, save progress, or says anything indicating they are done for now."
+description: "Save current session state to Apple Notes at session end. Triggers on handoff, bye, done, wrap up, or Chinese equivalents. Multi-agent architecture with private (per-agent) and shared (cross-agent) notes. Three-tier memory: Active, Archive, Long-term. Use whenever the user wants to end a session, save progress, or says anything indicating they are done for now. (收工/結束)"
 ---
 
 # Session Handoff — Multi-Agent Three-Tier Memory System
@@ -117,10 +117,10 @@ The budget exists because these notes get injected into every session start. Kee
    - Only relevant to self → write to Private
    - Useful across agents → write to Shared
 2. Overwrite private note `Session Handoff — {AgentID}`
-   - First time: `create-note` + `move-note` to configured notes folder
+   - First time: AppleScript `make new note at folder "Claude 工作區" with properties {body:"..."}`
 3. Update Shared note (only update own sections, never delete other agents' content)
-   - First time: `create-note` + `move-note` to configured notes folder
-4. Use `<h2>` to separate multiple projects
+   - First time: AppleScript `make new note at folder "Claude 工作區" with properties {body:"..."}`
+4. Use `<div><b>段落標題</b></div>` to separate multiple projects — **never `<h2>`** (infects subsequent text with font-size: 11px)
 
 ### Phase 3: Weekly Consolidation (Triggered when Archive >= 5 entries)
 
@@ -182,51 +182,80 @@ The budget exists because these notes get injected into every session start. Kee
 
 ## Note Format
 
-Notes use HTML because Apple Notes doesn't render markdown.
+Notes use HTML。操作規則：
+- **建立**：AppleScript `make new note with properties {body:...}`（不用 MCP create-note — 會標題重複）
+- **更新**：AppleScript `set body of targetNote to "..."`（優先；MCP update-note 可作備用，但務必確認 HTML 不含禁用標籤）
+- **讀取/搜尋**：MCP 即可
 
-### Private Note
+### macOS 26 HTML 格式規則（Pro CC 必遵守）
+
+| 格式 | HTML | 說明 |
+|------|------|------|
+| 筆記標題（大） | `<h1>標題</h1>` | → 24px bold；第一行自動成筆記名稱 |
+| 段落標題 | `<h2>標題</h2>` | → 18px bold |
+| 子標題 | `<h3>標題</h3>` 或 `<div><b>...</b></div>` | 兩者結果相同 |
+| 內文 | `<div>...</div>` | |
+| Code block（每行） | `<div><tt>code</tt><tt><br></tt></div>` | iOS/macOS 原生格式 |
+| 清單 | `<ul><li>...</li></ul>` | |
+| 空行 | `<div><br></div>` | |
+
+**避免**：`<p>`（多餘間距）、任何自訂 `font-size`
+
+**注意**：h1/h2/h3 感染 font-size 是舊版 macOS Tahoe 的 OS bug（已修復）。更新 OS 後 h1/h2/h3 正常可用。
+
+### Private Note 模板
 
 ```html
-<h1>Session Handoff — {AgentID}</h1>
-<p><i>Updated: YYYY/MM/DD</i></p>
-
-<h2>Project Alpha</h2>
-<h3>Continuing work</h3>
-<ul><li>NLP pipeline optimization</li></ul>
-<h3>Completed this session</h3>
-<ul><li>Refactored data fetcher</li></ul>
+<div>Session Handoff — {AgentID}</div>
+<div><i>更新時間：YYYY/MM/DD</i></div>
+<div><br></div>
+<div><b>Project Alpha</b></div>
+<ul><li>進行中的工作項目</li><li>本次完成的項目</li></ul>
+<div><br></div>
+<div><b>Project Beta</b></div>
+<ul><li>項目內容</li></ul>
 ```
 
-### Shared Note
+### Shared Note 模板
 
 ```html
-<h1>Session Handoff — Shared</h1>
-<p><i>Last updated: YYYY/MM/DD by {AgentID}</i></p>
-
-<h2>Environment Sync</h2>
-<ul>
-<li>New MCP server installed — AgentA done, AgentB pending</li>
-</ul>
-
-<h2>Cross-Agent Project State</h2>
-<ul>
-<li>Project Alpha: developed on AgentA, ready to deploy to AgentB</li>
-</ul>
-
-<h2>User Decisions</h2>
-<ul>
-<li>Deprecated tool X, using tool Y going forward</li>
-</ul>
+<div>Session Handoff — Shared</div>
+<div><i>最後更新：YYYY/MM/DD by {AgentID}</i></div>
+<div><br></div>
+<div><b>環境同步</b></div>
+<ul><li>New MCP server installed — AgentA done, AgentB pending</li></ul>
+<div><br></div>
+<div><b>跨 Agent 專案狀態</b></div>
+<ul><li>Project Alpha: developed on AgentA, ready to deploy to AgentB</li></ul>
 ```
 
 ### Archive Entry
 
-Each entry tagged with source agent:
-
 ```html
-<h3>YYYY/MM/DD [{AgentID}] — Project Alpha, Project Beta</h3>
-<p>[compressed handoff content]</p>
+<div><b>YYYY/MM/DD [{AgentID}] — Project Alpha, Beta</b></div>
+<div>[compressed handoff content]</div>
 <hr>
+```
+
+### 寫入方式
+
+```applescript
+-- 建立新筆記（用 AppleScript，不用 MCP create-note）
+tell application "Notes"
+    tell account "iCloud"
+        make new note at folder "Claude 工作區" with properties {body:"HTML_HERE"}
+    end tell
+end tell
+```
+
+更新既有筆記：優先用 AppleScript（`set body of selectedNote to "HTML_HERE"`），MCP `update-note` 也可，但確認寫入的 HTML 不含 `<h2>`/`<h3>`/`<ul>`/`<li>` 和自訂 `font-size`。
+
+```applescript
+-- 更新既有筆記
+tell application "Notes"
+    set targetNote to first note of folder "Claude 工作區" whose name contains "Session Handoff — Pro CC"
+    set body of targetNote to "HTML_HERE"
+end tell
 ```
 
 ## Rules
@@ -236,8 +265,9 @@ Each entry tagged with source agent:
 - Private note title is always `Session Handoff — {AgentID}`
 - Shared note title is always `Session Handoff — Shared`
 - When updating Shared, only update own sections — never delete other agents' content
-- Multiple projects in one note, separated by `<h2>`
+- Multiple projects in one note, separated by `<div><b>段落標題</b></div>` — never `<h2>`
 - Write notes in HTML format (not markdown) — Apple Notes doesn't render markdown
+- 建立筆記用 AppleScript，讀取用 MCP；更新優先用 AppleScript（避免 MCP 殘留舊格式）
 
 ## Prerequisites
 
