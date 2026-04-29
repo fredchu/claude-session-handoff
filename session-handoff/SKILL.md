@@ -121,12 +121,15 @@ The budget exists because these notes get injected into every session start. Kee
 3. Update Shared note (only update own sections, never delete other agents' content)
    - First time: AppleScript `make new note at folder "Claude 工作區" with properties {body:"..."}`
 4. Use `<div><b>段落標題</b></div>` to separate multiple projects — **never `<h2>`** (infects subsequent text with font-size: 11px)
+5. **Auto-detect consolidation trigger** — Phase 2 寫完後立即跑 `scripts/count_archive_entries.py --note-title "Session Handoff — Archive"`，取 `should_consolidate` 旗標。若為 `true`（即 Archive 條目數 ≥ 5）→ **直接進 Phase 3，不問用戶**。
 
-### Phase 3: Weekly Consolidation (Triggered when Archive >= 5 entries)
+### Phase 3: Weekly Consolidation (自動觸發 — Phase 2 後 if Archive >= 5)
 
-1. **Generate weekly report** → save to memory/episodic directory
+**觸發機制**：Phase 2 step 5 偵測到 `should_consolidate: true` 直接進此 Phase。**不問用戶**（用戶 CLAUDE.md 規則：「Weekly Consolidation 達門檻時直接執行，不需確認」）。
+
+1. **Generate weekly report** → save to memory/episodic directory（按 ISO week 分組老 entries）
 2. **Distill patterns** → scan Archive for recurring cross-agent issues
-3. **Clean Archive** → keep only the most recent 5 entries
+3. **Clean Archive** → 用 `scripts/consolidate_archive.py --apply --keep 5` 執行：歸檔老 entries 到 episodic，Archive 留最新 5 條，自動透過 `applescript_notes.py` 寫回 Apple Notes
 
 ### Phase 4: Lesson Extraction (Session 回顧)
 
