@@ -1,8 +1,10 @@
 import sys
 import pathlib
+import subprocess
 
 sys.path.insert(0, str(pathlib.Path(__file__).parent.parent))
-from _utils import count_visible_chars, escape_applescript_str, parse_archive_entries
+import _utils
+from _utils import count_visible_chars, escape_applescript_str, parse_archive_entries, run_applescript
 
 
 def test_count_visible_chars_basic():
@@ -90,3 +92,80 @@ def test_parse_archive_entries_br_self_closing():
     entries = parse_archive_entries(html)
     assert len(entries) == 1
     assert entries[0]["date"] == "2026/05/01"
+
+
+def test_run_applescript_retries_transient_once_then_success(monkeypatch):
+    calls = []
+    sleep_calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        if len(calls) == 1:
+            return subprocess.CompletedProcess(
+                args[0],
+                1,
+                stdout="",
+                stderr='execution error: Notes got an error: 索引錯誤 (-1719)',
+            )
+        return subprocess.CompletedProcess(args[0], 0, stdout="  ok\n", stderr="")
+
+    monkeypatch.setattr(_utils.subprocess, "run", fake_run)
+    monkeypatch.setattr("time.sleep", lambda delay: sleep_calls.append(delay))
+
+    assert run_applescript("return 1", attempts=3, base_delay=0.1) == "ok"
+    assert len(calls) == 2
+    assert sleep_calls == [0.1]
+
+
+def test_run_applescript_persistent_transient_raises_after_attempts(monkeypatch):
+    calls = []
+    sleep_calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return subprocess.CompletedProcess(
+            args[0],
+            1,
+            stdout="",
+            stderr="execution error: Notes timed out (-1712)",
+        )
+
+    monkeypatch.setattr(_utils.subprocess, "run", fake_run)
+    monkeypatch.setattr("time.sleep", lambda delay: sleep_calls.append(delay))
+
+    try:
+        run_applescript("return 1", attempts=3, base_delay=0.2)
+    except RuntimeError as exc:
+        assert "osascript failed" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+    assert len(calls) == 3
+    assert sleep_calls == [0.2, 0.4]
+
+
+def test_run_applescript_non_transient_does_not_retry(monkeypatch):
+    calls = []
+    sleep_calls = []
+
+    def fake_run(*args, **kwargs):
+        calls.append((args, kwargs))
+        return subprocess.CompletedProcess(
+            args[0],
+            1,
+            stdout="",
+            stderr="syntax error: Expected end of line",
+        )
+
+    monkeypatch.setattr(_utils.subprocess, "run", fake_run)
+    monkeypatch.setattr("time.sleep", lambda delay: sleep_calls.append(delay))
+
+    try:
+        run_applescript("bad script", attempts=3, base_delay=0.2)
+    except RuntimeError as exc:
+        assert "osascript failed" in str(exc)
+    else:
+        raise AssertionError("expected RuntimeError")
+
+    assert len(calls) == 1
+    assert sleep_calls == []

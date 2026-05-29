@@ -2,10 +2,12 @@
 
 import re
 import subprocess
+import time
 from html.parser import HTMLParser
 
 FORBIDDEN_TAGS = ["<p>", "<p ", "</p>"]
 FORBIDDEN_ATTRS_REGEX = r'font-size\s*:'
+TRANSIENT_OSASCRIPT_ERRORS = ("-1719", "-1712", "-1700", "execution error", "索引錯誤")
 
 
 class _TextExtractor(HTMLParser):
@@ -34,16 +36,33 @@ def escape_applescript_str(s: str) -> str:
     return s
 
 
-def run_applescript(script: str) -> str:
+def _is_transient_osascript_error(stderr: str) -> bool:
+    """Return True for intermittent osascript/Notes failures worth retrying."""
+    normalized = stderr.lower()
+    return any(marker.lower() in normalized for marker in TRANSIENT_OSASCRIPT_ERRORS)
+
+
+def run_applescript(script: str, attempts=3, base_delay=0.3) -> str:
     """Run osascript -e <script> and return stdout stripped. Raises RuntimeError on failure."""
-    result = subprocess.run(
-        ["osascript", "-e", script],
-        capture_output=True,
-        text=True,
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"osascript failed: {result.stderr.strip()}")
-    return result.stdout.strip()
+    total_attempts = max(1, int(attempts))
+    last_stderr = ""
+
+    for attempt_number in range(1, total_attempts + 1):
+        result = subprocess.run(
+            ["osascript", "-e", script],
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0:
+            return result.stdout.strip()
+
+        last_stderr = result.stderr.strip()
+        if not _is_transient_osascript_error(last_stderr):
+            raise RuntimeError(f"osascript failed: {last_stderr}")
+        if attempt_number < total_attempts:
+            time.sleep(base_delay * attempt_number)
+
+    raise RuntimeError(f"osascript failed: {last_stderr}")
 
 
 # Header pattern for archive entries.
