@@ -51,8 +51,9 @@ def run_applescript(script: str) -> str:
 # Group 2: optional prefix token before [agent] (non-greedy, does not consume '[')
 # Group 3: agent name inside [...]
 # Group 4: summary text after "—"
+# Apple Notes injects an extra <br> before </div> on round-trip, so accept either form.
 _ENTRY_HEADER_RE = re.compile(
-    r'<div><b>(\d{4}/\d{2}/\d{2})\s*([^\[]*?)\s*\[([^\]]+)\]\s*—\s*([^<]+)</b></div>'
+    r'<div><b>(\d{4}/\d{2}/\d{2})\s*([^\[]*?)\s*\[([^\]]+)\]\s*—\s*([^<]+)</b>(?:<br\s*/?>)?</div>'
 )
 
 
