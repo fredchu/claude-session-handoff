@@ -1,12 +1,17 @@
-## Unreleased - 2026-05-29
-
-### Fixed
-- **Duplicate notes root cause.** Create/update was LLM-driven raw AppleScript with self-judged first-time, producing duplicate canonical notes over time. All writes now go through `applescript_notes.py write` — an exact-title (`name is`, not `contains`) upsert with `run_applescript` transient-error retry (`-1719`/`-1712`/`-1700`/execution error/索引錯誤).
-- This supersedes the 1.3.0 note below: do NOT hand-write `make new note` / `set body`, and do NOT use MCP `create-note`/`update-note` for writes.
+## 1.4.0 - 2026-05-29
 
 ### Added
-- `applescript_notes.py dedup --title T [--apply]` — lists or heals duplicate exact-title notes, keeping the newest by a locale-independent `YYYYMMDDHHMMSS` sort key (with id tie-break for same-second ties); deletes are idempotent under retry.
-- **Phase 0 dedup precheck** in the workflow, and a **deterministic SessionStart dedup sweep** in the example hook (`hooks/session-start.sh`) that auto-heals duplicates every session start, independent of whether the skill runs. This is the real safety net since prevention is otherwise LLM-compliance-dependent.
+- Extracted all deterministic logic into stdlib-only Python scripts (`applescript_notes.py`, `consolidate_archive.py`, `count_archive_entries.py`, `lint_handoff_html.py`, `render_handoff_html.py`) with a pytest suite — replacing prose the executing LLM previously had to re-derive each run.
+- Auto-triggered weekly consolidation after Phase 2: when the Archive reaches the threshold, consolidation now runs without asking.
+- `applescript_notes.py dedup --title T [--apply]` — lists or heals duplicate exact-title notes, keeping the newest by a locale-independent `YYYYMMDDHHMMSS` sort key (id tie-break for same-second ties); deletes are idempotent under retry.
+- **Deterministic SessionStart dedup sweep** in the example hook (`hooks/session-start.sh`): runs `dedup --apply` over all canonical titles every session start, logging to `~/.claude/scripts/handoff-dedup.log` and never to stdout. This is the real safety net — it heals duplicates regardless of how they were created, since write-path prevention is otherwise LLM-compliance-dependent.
+
+### Fixed
+- **Duplicate notes root cause.** Create/update was LLM-driven raw AppleScript with self-judged "first time vs update", producing duplicate canonical notes over time. All writes now go through an exact-title (`name is`, not `contains`) upsert in `applescript_notes.py write`, and `run_applescript` retries transient osascript failures (`-1719`/`-1712`/`-1700`/execution error/索引錯誤).
+- Archive header regex now tolerates the `<br>` Apple Notes injects on round-trip (and self-closing `<br/>`), so `count_archive_entries.py` no longer reports 0 against a real Archive note.
+
+### Changed
+- **Writes no longer use raw AppleScript or MCP `create-note`** (supersedes the 1.3.0 note below). The workflow routes all create / update / archive-prepend through `applescript_notes.py write`, and adds a Phase 0 dedup precheck. An Apple Notes MCP is now optional and used only for reading/searching.
 
 ## 1.3.0 - 2026-04-27
 
