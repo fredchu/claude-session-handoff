@@ -102,24 +102,31 @@ The budget exists because these notes get injected into every session start. Kee
 
 ## Workflow
 
+### Phase 0: Dedup Precheck (Heal Pre-existing Duplicates)
+
+Before reading/writing anything, ensure each canonical title resolves to exactly one note. Run for each title you will touch (`Session Handoff — {AgentID}`, `Session Handoff — Shared`, `Session Handoff — Archive`):
+
+```bash
+python3 scripts/applescript_notes.py dedup --title "Session Handoff — {AgentID}"
+```
+
+- `OK: 1 note(s)` (or 0) → proceed.
+- `Found N duplicate notes…` → inspect the listed ids/dates, then heal with `--apply` (keeps the newest by a locale-independent sort key, deletes the rest) **before** any write — otherwise an exact-title write could update an arbitrary one of the duplicates.
+
 ### Phase 1: Archive (Preserve Old Content)
 
-1. Search for own private note `Session Handoff — {AgentID}`
-2. If found, read its content
-3. Search for `Session Handoff — Archive`
-   - Exists → prepend old private content to Archive top (with date separator, tagged with AgentID)
-   - Not found → create Archive, move to configured notes folder
-4. Search for `Session Handoff — Shared`, read existing shared content (Phase 2 determines what to update)
+1. Read own private note `Session Handoff — {AgentID}` (`applescript_notes.py read --title …`, or MCP).
+2. If found, keep its content for archiving.
+3. Read `Session Handoff — Archive`, prepend old private content to the top (date separator, tagged with AgentID), then write back via `applescript_notes.py write --title "Session Handoff — Archive" --html-file …`. The write upserts — it creates the Archive note if it does not exist yet (no separate create step).
+4. Read `Session Handoff — Shared` (Phase 2 determines what to update).
 
 ### Phase 2: Write (Overwrite Private + Update Shared)
 
 1. Review this session's conversation, route content:
    - Only relevant to self → write to Private
    - Useful across agents → write to Shared
-2. Overwrite private note `Session Handoff — {AgentID}`
-   - First time: AppleScript `make new note at folder "Claude 工作區" with properties {body:"..."}`
-3. Update Shared note (only update own sections, never delete other agents' content)
-   - First time: AppleScript `make new note at folder "Claude 工作區" with properties {body:"..."}`
+2. Write private note `Session Handoff — {AgentID}` via `applescript_notes.py write --title … --html-file …` (upsert — same command whether it exists or not; no first-time branch).
+3. Update Shared note the same way (only update own sections, never delete other agents' content — read current Shared, edit your sections, write the merged HTML back).
 4. Use `<div><b>段落標題</b></div>` to separate multiple projects — **never `<h2>`** (infects subsequent text with font-size: 11px)
 5. **Auto-detect consolidation trigger** — Phase 2 寫完後立即跑 `scripts/count_archive_entries.py --note-title "Session Handoff — Archive"`，取 `should_consolidate` 旗標。若為 `true`（即 Archive 條目數 ≥ 5）→ **直接進 Phase 3，不問用戶**。
 
@@ -186,9 +193,9 @@ The budget exists because these notes get injected into every session start. Kee
 ## Note Format
 
 Notes use HTML。操作規則：
-- **建立**：AppleScript `make new note with properties {body:...}`（不用 MCP create-note — 會標題重複）
-- **更新**：AppleScript `set body of targetNote to "..."`（優先；MCP update-note 可作備用，但務必確認 HTML 不含禁用標籤）
-- **讀取/搜尋**：MCP 即可
+- **建立 / 更新**：一律走 `scripts/applescript_notes.py write`（exact-title upsert，內建 lint + transient retry）。不要手寫 `make new note` / `set body`，也不要用 MCP create-note（會製造重複標題）。
+- **讀取/搜尋**：MCP 或 `applescript_notes.py read` 皆可
+- **去重**：`applescript_notes.py dedup --title T [--apply]`
 
 ### macOS 26 HTML 格式規則（Pro CC 必遵守）
 
@@ -240,26 +247,24 @@ Notes use HTML。操作規則：
 <hr>
 ```
 
-### 寫入方式
+### 寫入方式（一律走 upsert 腳本，不要手寫 AppleScript）
 
-```applescript
--- 建立新筆記（用 AppleScript，不用 MCP create-note）
-tell application "Notes"
-    tell account "iCloud"
-        make new note at folder "Claude 工作區" with properties {body:"HTML_HERE"}
-    end tell
-end tell
+**所有建立/更新都必須透過 `scripts/applescript_notes.py write`。** 它是 find-or-create upsert：用**精確標題**（`name is`，非 `contains`）找既有 note，找到就覆寫 body、找不到才建立——同一個指令處理建立與更新兩種情況，呼叫端不需要也不應該自己判斷「first time 與否」。
+
+> **為什麼**：歷史上建立/更新讓 LLM 現場手寫 `make new note` / `set body` 並自行判斷是否首次，跨 session 判斷不穩 + Notes 偶發 `-1719` 索引錯誤 → 累積出重複 note（2026-05-29 清出 2 個 Shared、3 個 Pro CC）。腳本把這段確定性邏輯固化，內建 exact-match + transient retry，從源頭消滅重複。
+
+```bash
+# 建立或更新（upsert）— 把 HTML 寫進暫存檔再餵給腳本（避免 shell 跳脫地獄）
+python3 scripts/applescript_notes.py write \
+  --title "Session Handoff — Pro CC" \
+  --html-file /tmp/handoff_private.html
+# 預設 --folder "Claude 工作區" --account "iCloud"；腳本會先 quick_lint（含 <p>/font-size 擋下，exit 2）
 ```
 
-更新既有筆記：優先用 AppleScript（`set body of selectedNote to "HTML_HERE"`），MCP `update-note` 也可，但確認寫入的 HTML 不含 `<h2>`/`<h3>`/`<ul>`/`<li>` 和自訂 `font-size`。
-
-```applescript
--- 更新既有筆記
-tell application "Notes"
-    set targetNote to first note of folder "Claude 工作區" whose name contains "Session Handoff — Pro CC"
-    set body of targetNote to "HTML_HERE"
-end tell
-```
+讀取仍可用 MCP 或 osascript；只有**寫入**強制走腳本。
+- `read --title T`：讀 body（精確標題）
+- `exists --title T`：exit 0=存在 / 1=不存在
+- `dedup --title T [--apply]`：偵測同標題重複（見 Phase 1 precheck）
 
 ## Rules
 
@@ -270,7 +275,8 @@ end tell
 - When updating Shared, only update own sections — never delete other agents' content
 - Multiple projects in one note, separated by `<div><b>段落標題</b></div>` — never `<h2>`
 - Write notes in HTML format (not markdown) — Apple Notes doesn't render markdown
-- 建立筆記用 AppleScript，讀取用 MCP；更新優先用 AppleScript（避免 MCP 殘留舊格式）
+- 所有寫入（建立/更新/Archive prepend）一律走 `scripts/applescript_notes.py write`（exact-title upsert）；不要手寫 AppleScript 或用 MCP create-note。讀取可用 MCP。
+- Phase 0 dedup precheck 是防重複的第一道關卡；發現重複先 `dedup --apply` 再寫
 
 ## Prerequisites
 
