@@ -55,9 +55,9 @@ Single-agent mode is also supported — just skip the shared note.
 npx skills add fredchu/claude-session-handoff
 ```
 
-### 2. Install Apple Notes MCP
+### 2. (Optional) Install Apple Notes MCP
 
-You need an MCP server that can read/write Apple Notes. For example: [apple-notes-mcp](https://github.com/Dhravya/apple-notes-mcp)
+An MCP server is optional and only used for **reading/searching** convenience, e.g. [apple-notes-mcp](https://github.com/Dhravya/apple-notes-mcp). **Note writes go through the bundled `scripts/applescript_notes.py write` (an exact-title upsert), not MCP** — MCP `create-note` produces duplicate headings. Reads work via MCP, `applescript_notes.py read`, or raw AppleScript.
 
 ```bash
 claude mcp add --scope user apple-notes -- npx -y apple-notes-mcp

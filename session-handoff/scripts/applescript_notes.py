@@ -91,10 +91,15 @@ end tell'''
 
 def build_dedup_delete_script(note_ids: list) -> str:
     quoted_ids = ", ".join(f'"{escape_applescript_str(note_id)}"' for note_id in note_ids)
+    # Wrap each delete in try so the script is idempotent: if run_applescript
+    # retries a transient failure after some deletes already landed, the
+    # already-gone ids simply no-op instead of raising "can't get note id …".
     return f'''tell application "Notes"
   set noteIdsToDelete to {{{quoted_ids}}}
   repeat with noteIdToDelete in noteIdsToDelete
-    delete first note whose id is (noteIdToDelete as text)
+    try
+      delete first note whose id is (noteIdToDelete as text)
+    end try
   end repeat
 end tell'''
 
@@ -114,8 +119,12 @@ def _parse_dedup_rows(output: str) -> list:
 
 
 def _sort_dedup_rows(rows: list) -> list:
-    """Newest first by locale-independent fixed-width sort key (not the display date)."""
-    return sorted(rows, key=lambda note: note["sort_key"], reverse=True)
+    """Newest first by locale-independent fixed-width sort key (not the display date).
+
+    Secondary key is the note id, so same-second ties resolve deterministically
+    (same choice every run) — required for the auto-run hook to be idempotent.
+    """
+    return sorted(rows, key=lambda note: (note["sort_key"], note["id"]), reverse=True)
 
 
 def cmd_read(title: str, folder: str, account: str):

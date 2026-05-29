@@ -113,6 +113,8 @@ python3 scripts/applescript_notes.py dedup --title "Session Handoff — {AgentID
 - `OK: 1 note(s)` (or 0) → proceed.
 - `Found N duplicate notes…` → inspect the listed ids/dates, then heal with `--apply` (keeps the newest by a locale-independent sort key, deletes the rest) **before** any write — otherwise an exact-title write could update an arbitrary one of the duplicates.
 
+> The example SessionStart hook (`hooks/session-start.sh`) already runs this same `dedup --apply` sweep for all three canonical titles on **every** session start, logging to `~/.claude/scripts/handoff-dedup.log`. That deterministic sweep — not this prose step — is the actual safety net: write-path prevention depends on agents following this skill, but the hook heals duplicates regardless of who or what created them. This Phase 0 step is a belt-and-suspenders precheck for the case where the hook is not installed.
+
 ### Phase 1: Archive (Preserve Old Content)
 
 1. Read own private note `Session Handoff — {AgentID}` (`applescript_notes.py read --title …`, or MCP).
@@ -281,7 +283,8 @@ python3 scripts/applescript_notes.py write \
 ## Prerequisites
 
 - **macOS** — Apple Notes is macOS/iOS only
-- **Apple Notes MCP** — for reading/writing notes (e.g., [apple-notes-mcp](https://github.com/Dhravya/apple-notes-mcp))
+- **Apple Notes MCP** — optional, for **reading/searching** convenience (e.g., [apple-notes-mcp](https://github.com/Dhravya/apple-notes-mcp)). **Writes do NOT use MCP** — they go through `scripts/applescript_notes.py write` (exact-title upsert). MCP `create-note` produces duplicate headings and is the bypass that caused duplicate notes.
+- **Python 3** — runs the deterministic helper scripts (`applescript_notes.py`, consolidation, lint). Stdlib only.
 - **SessionStart hook** — to inject handoff content at session start (see `hooks/session-start.sh` for a working example)
 
 ### SessionStart Hook Setup

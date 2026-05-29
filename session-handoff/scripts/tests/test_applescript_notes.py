@@ -91,6 +91,26 @@ def test_sort_dedup_rows_orders_chronologically_not_by_locale_string():
     assert [r["id"] for r in ordered] == ["newest-may29-10am", "may29-8am", "old-may6"]
 
 
+def test_sort_dedup_rows_same_second_tie_breaks_deterministically_by_id():
+    # Same-second duplicates must resolve to the same kept note every run, so the
+    # auto-run hook is idempotent. Tie-break is id (higher coredata p-id = newer).
+    rows = [
+        {"id": ".../ICNote/p100", "sort_key": "20260529084900", "modified_at": "t"},
+        {"id": ".../ICNote/p200", "sort_key": "20260529084900", "modified_at": "t"},
+    ]
+    a = applescript_notes._sort_dedup_rows(rows)
+    b = applescript_notes._sort_dedup_rows(list(reversed(rows)))
+    assert a[0]["id"] == b[0]["id"] == ".../ICNote/p200"
+
+
+def test_build_dedup_delete_script_is_idempotent_under_retry():
+    # Each delete is wrapped in try so re-running after a partial delete (e.g. a
+    # transient-error retry) does not raise on already-gone ids.
+    script = applescript_notes.build_dedup_delete_script(["id-a", "id-b"])
+    assert "try" in script
+    assert script.count("delete first note") == 1  # one delete stmt inside the repeat
+
+
 def test_write_lint_failure_p_tag():
     # Writing HTML with forbidden <p> tag should exit 2
     result = subprocess.run(

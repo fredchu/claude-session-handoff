@@ -1,3 +1,13 @@
+## Unreleased - 2026-05-29
+
+### Fixed
+- **Duplicate notes root cause.** Create/update was LLM-driven raw AppleScript with self-judged first-time, producing duplicate canonical notes over time. All writes now go through `applescript_notes.py write` — an exact-title (`name is`, not `contains`) upsert with `run_applescript` transient-error retry (`-1719`/`-1712`/`-1700`/execution error/索引錯誤).
+- This supersedes the 1.3.0 note below: do NOT hand-write `make new note` / `set body`, and do NOT use MCP `create-note`/`update-note` for writes.
+
+### Added
+- `applescript_notes.py dedup --title T [--apply]` — lists or heals duplicate exact-title notes, keeping the newest by a locale-independent `YYYYMMDDHHMMSS` sort key (with id tie-break for same-second ties); deletes are idempotent under retry.
+- **Phase 0 dedup precheck** in the workflow, and a **deterministic SessionStart dedup sweep** in the example hook (`hooks/session-start.sh`) that auto-heals duplicates every session start, independent of whether the skill runs. This is the real safety net since prevention is otherwise LLM-compliance-dependent.
+
 ## 1.3.0 - 2026-04-27
 
 ### Changes

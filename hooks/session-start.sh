@@ -11,7 +11,24 @@
 # ---- Configuration ----
 AGENT_ID="Main"           # Your agent name (e.g., "Pro CC", "Mini CC", "Main")
 NOTES_FOLDER="Claude Workspace"  # Apple Notes folder where handoff notes live
+DEDUP_SCRIPT="$HOME/.claude/skills/session-handoff/scripts/applescript_notes.py"  # for the dedup sweep
 # -----------------------
+
+# --- Self-healing dedup sweep (deterministic, runs every session start) ---
+# Heals duplicate canonical handoff notes that any non-compliant write (ad-hoc
+# AppleScript, MCP create-note, an agent without the fix) may have created —
+# independent of whether the handoff skill ran. Prevention is LLM-compliance-
+# dependent; this sweep is not. Output goes to a log, NEVER to stdout (stdout is
+# injected as session context).
+if [ -f "$DEDUP_SCRIPT" ]; then
+  for _t in "Session Handoff — ${AGENT_ID}" "Session Handoff — Shared" "Session Handoff — Archive"; do
+    _out=$(/usr/bin/python3 "$DEDUP_SCRIPT" --folder "$NOTES_FOLDER" dedup --title "$_t" --apply 2>&1)
+    case "$_out" in
+      "OK: "*) : ;;  # 0 or 1 note — nothing to heal
+      *) printf '%s [%s] %s\n' "$(date '+%Y-%m-%dT%H:%M:%S')" "$_t" "$_out" >> "$HOME/.claude/scripts/handoff-dedup.log" ;;
+    esac
+  done
+fi
 
 read_note() {
   local title="$1"
