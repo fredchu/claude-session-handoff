@@ -1,10 +1,15 @@
 import os
+import importlib.util
 import subprocess
 import sys
 import tempfile
 import pathlib
 
 SCRIPT = pathlib.Path(__file__).parent.parent / "consolidate_archive.py"
+
+spec = importlib.util.spec_from_file_location("consolidate_archive", SCRIPT)
+consolidate_archive = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(consolidate_archive)
 
 
 def make_entry(date, agent="Pro CC", summary="summary"):
@@ -85,3 +90,32 @@ def test_rebuild_archive_keeps_n_entries():
     import re
     headers = re.findall(r"<div><b>\d{4}/\d{2}/\d{2}", rebuilt)
     assert len(headers) == 3
+
+
+def test_rebuild_archive_includes_canonical_header():
+    html = "".join(make_entry(f"2026/04/{i + 1:02d}") for i in range(3))
+    result, files, rebuilt = run_consolidate(html, keep=2)
+    assert result.returncode == 0
+    assert rebuilt.startswith("<div>Session Handoff — Archive</div>")
+
+
+def test_apply_requires_episodic_dir(monkeypatch, capsys):
+    def fake_run(*args, **kwargs):
+        return subprocess.CompletedProcess(
+            args=args[0],
+            returncode=0,
+            stdout=make_entry("2026/04/01"),
+            stderr="",
+        )
+
+    monkeypatch.setattr(sys, "argv", [str(SCRIPT), "--apply"])
+    monkeypatch.setattr(consolidate_archive.subprocess, "run", fake_run)
+
+    try:
+        consolidate_archive.main()
+    except SystemExit as exc:
+        assert exc.code != 0
+    else:
+        raise AssertionError("main() should require --episodic-dir")
+
+    assert "--episodic-dir is required" in capsys.readouterr().err

@@ -45,9 +45,15 @@ def write_episodic_file(episodic_dir: Path, week_key: str, entries: list):
                 f.write(f"{entry['raw']}\n")
 
 
-def rebuild_archive_html(kept_entries: list) -> str:
+def rebuild_archive_html(note_title: str, kept_entries: list) -> str:
     """Rebuild archive HTML from kept entries."""
-    return "\n".join(e["raw"].rstrip() for e in kept_entries)
+    parts = [
+        f"<div>{note_title}</div>",
+        "<div><i>歷史 handoff 歸檔（最新在上）</i><br></div>",
+        "<div><br></div>",
+    ]
+    parts.extend(e["raw"].rstrip() for e in kept_entries)
+    return "\n".join(parts)
 
 
 def main():
@@ -61,7 +67,7 @@ def main():
                         help="Read/write directly from Apple Notes")
 
     parser.add_argument("--episodic-dir", metavar="DIR",
-                        help="Output directory for episodic weekly reports (required unless --apply)")
+                        help="Output directory for episodic weekly reports")
     parser.add_argument("--keep", type=int, default=DEFAULT_KEEP,
                         help=f"Number of newest entries to keep (default {DEFAULT_KEEP})")
     parser.add_argument("--dry-run", action="store_true",
@@ -70,8 +76,8 @@ def main():
                         help=f"Archive note title (default: '{DEFAULT_NOTE_TITLE}')")
     args = parser.parse_args()
 
-    if not args.apply and not args.episodic_dir:
-        parser.error("--episodic-dir is required unless using --apply")
+    if not args.episodic_dir:
+        parser.error("--episodic-dir is required (promoted entries must be written somewhere)")
 
     # Read archive HTML
     if args.apply:
@@ -107,14 +113,13 @@ def main():
         return
 
     # Write episodic files
-    episodic_dir = Path(args.episodic_dir) if args.episodic_dir else None
-    if episodic_dir:
-        episodic_dir.mkdir(parents=True, exist_ok=True)
-        for week_key, week_entries in week_groups.items():
-            write_episodic_file(episodic_dir, week_key, week_entries)
+    episodic_dir = Path(args.episodic_dir)
+    episodic_dir.mkdir(parents=True, exist_ok=True)
+    for week_key, week_entries in week_groups.items():
+        write_episodic_file(episodic_dir, week_key, week_entries)
 
     # Rebuild archive
-    new_archive_html = rebuild_archive_html(kept)
+    new_archive_html = rebuild_archive_html(args.note_title, kept)
 
     if args.apply:
         script_dir = Path(__file__).parent
