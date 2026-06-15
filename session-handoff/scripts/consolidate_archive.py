@@ -3,6 +3,7 @@
 
 import argparse
 import datetime
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -110,6 +111,22 @@ def main():
 
     if args.dry_run:
         print(f"Would promote {len(promoted)} entries to {week_list}, keep {len(kept)} in archive")
+        return
+
+    # ponytail: local substantive-source heuristic; upgrade by returning parser/read status.
+    if not entries and html.strip() and (
+        len(html.strip()) > len(rebuild_archive_html(args.note_title, []).strip())
+        or re.search(r"<b>\d{4}/\d{2}/\d{2}", html)
+    ):
+        print(
+            "refusing to rewrite archive: parsed 0 entries from non-empty source — likely "
+            "a read race or parse failure; archive left untouched",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    if not promoted:
+        print(f"nothing to consolidate ({len(entries)} entries <= keep {args.keep}); archive untouched")
         return
 
     # Write episodic files

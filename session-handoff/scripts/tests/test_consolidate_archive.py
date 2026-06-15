@@ -99,6 +99,105 @@ def test_rebuild_archive_includes_canonical_header():
     assert rebuilt.startswith("<div>Session Handoff — Archive</div>")
 
 
+def test_promotes_overflow_and_keeps_newest_entries(tmp_path):
+    html = "".join(make_entry(f"2026/06/{day:02d}") for day in range(10, 16))
+    html_file = tmp_path / "archive.html"
+    episodic_dir = tmp_path / "episodic"
+    html_file.write_text(html, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable, str(SCRIPT),
+            "--archive-html", str(html_file),
+            "--episodic-dir", str(episodic_dir),
+            "--keep", "5",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "promoted 1" in result.stdout
+    rebuilt = html_file.read_text(encoding="utf-8")
+    assert rebuilt.count("<div><b>2026/06/") == 5
+    assert "2026/06/10" not in rebuilt
+    assert "2026/06/15" in rebuilt
+    weekly_files = list(episodic_dir.glob("*-weekly-report.md"))
+    assert len(weekly_files) == 1
+    weekly = weekly_files[0].read_text(encoding="utf-8")
+    assert "2026/06/10" in weekly
+    assert "2026/06/11" not in weekly
+
+
+def test_entries_within_keep_noop_leaves_archive_unchanged(tmp_path):
+    html = "".join(make_entry(f"2026/06/{day:02d}") for day in range(13, 16))
+    html_file = tmp_path / "archive.html"
+    episodic_dir = tmp_path / "episodic"
+    html_file.write_text(html, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable, str(SCRIPT),
+            "--archive-html", str(html_file),
+            "--episodic-dir", str(episodic_dir),
+            "--keep", "5",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "nothing to consolidate (3 entries <= keep 5); archive untouched" in result.stdout
+    assert html_file.read_text(encoding="utf-8") == html
+    assert not episodic_dir.exists()
+
+
+def test_zero_parsed_entries_from_substantive_archive_fails_closed(tmp_path):
+    html = "<div><b>2026/06/15 [Pro CC] - mangled dash</b></div><div>detail</div>\n"
+    html_file = tmp_path / "archive.html"
+    episodic_dir = tmp_path / "episodic"
+    html_file.write_text(html, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable, str(SCRIPT),
+            "--archive-html", str(html_file),
+            "--episodic-dir", str(episodic_dir),
+            "--keep", "5",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode != 0
+    assert "refusing to rewrite archive: parsed 0 entries from non-empty source" in result.stderr
+    assert html_file.read_text(encoding="utf-8") == html
+    assert not episodic_dir.exists()
+
+
+def test_header_only_archive_noop_without_corruption(tmp_path):
+    html = consolidate_archive.rebuild_archive_html("Session Handoff — Archive", [])
+    html_file = tmp_path / "archive.html"
+    episodic_dir = tmp_path / "episodic"
+    html_file.write_text(html, encoding="utf-8")
+
+    result = subprocess.run(
+        [
+            sys.executable, str(SCRIPT),
+            "--archive-html", str(html_file),
+            "--episodic-dir", str(episodic_dir),
+            "--keep", "5",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    assert result.returncode == 0
+    assert "nothing to consolidate (0 entries <= keep 5); archive untouched" in result.stdout
+    assert html_file.read_text(encoding="utf-8") == html
+    assert not episodic_dir.exists()
+
+
 def test_apply_requires_episodic_dir(monkeypatch, capsys):
     def fake_run(*args, **kwargs):
         return subprocess.CompletedProcess(
