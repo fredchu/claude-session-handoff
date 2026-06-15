@@ -1,3 +1,24 @@
+## 1.4.1 - 2026-06-15
+
+### 修復
+- `consolidate_archive.py`：新增 fail-safe 防護，當解析回傳 0 條（例如短暫的 applescript 讀取競態讀到過期／空白 HTML）時，不再把 Archive 筆記重寫成只剩標題、銷毀 handoff 歷史。改為：來源非空但解析 0 條 → 以非零碼中止、條目數在 keep 範圍內 → no-op、只有真正溢出才重寫；並補上 promote／no-op／fail-closed／只剩標題 等情境的回歸測試。
+- `consolidate_archive.py`：重建時保留 Archive 標準標題列、強制 `--episodic-dir`，確保歸檔條目不會被靜默丟棄。
+
+## 1.4.0 - 2026-05-29
+
+### 新增
+- 把所有確定性邏輯抽成純 stdlib Python 腳本（`applescript_notes.py`、`consolidate_archive.py`、`count_archive_entries.py`、`lint_handoff_html.py`、`render_handoff_html.py`）並附 pytest 測試套件，取代過去每次都要 LLM 現場重新推導的散文式指引。
+- Phase 2 後自動觸發 weekly consolidation：Archive 達門檻時自動執行，不再詢問。
+- `applescript_notes.py dedup --title T [--apply]`：列出或修復同精確標題的重複筆記，以與語系無關的 `YYYYMMDDHHMMSS` 排序鍵保留最新一則（同秒以 id 決勝）；刪除在重試下具冪等性。
+- 範例 hook（`hooks/session-start.sh`）的確定性 SessionStart 去重掃描：每次 session 啟動對所有標準標題跑 `dedup --apply`，記錄到 `~/.claude/scripts/handoff-dedup.log`、絕不輸出到 stdout。這是真正的安全網——無論重複怎麼產生都能修復，因為寫入路徑的預防本身依賴 LLM 是否遵循流程。
+
+### 修復
+- **重複筆記的根因。** 建立／更新過去是 LLM 現場手寫 AppleScript、自行判斷「首次或更新」，長期累積出重複的標準筆記。所有寫入現在一律走 `applescript_notes.py write` 的精確標題（`name is`，非 `contains`）upsert，且 `run_applescript` 會重試短暫的 osascript 失敗（`-1719`／`-1712`／`-1700`／execution error／索引錯誤）。
+- Archive 標題 regex 現在容忍 Apple Notes 在 round-trip 注入的 `<br>`（及自閉合 `<br/>`），`count_archive_entries.py` 不再對真實 Archive 筆記回報 0。
+
+### 變更
+- **寫入不再使用原始 AppleScript 或 MCP `create-note`**（取代下方 1.3.0 的說明）。流程把所有建立／更新／archive-prepend 都導向 `applescript_notes.py write`，並新增 Phase 0 去重預檢。Apple Notes MCP 現為選用，僅用於讀取／搜尋。
+
 ## 1.3.0 - 2026-04-27
 
 ### 變更

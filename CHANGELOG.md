@@ -1,3 +1,9 @@
+## 1.4.1 - 2026-06-15
+
+### Fixed
+- `consolidate_archive.py`: fail-safe guards so a parse returning 0 entries (e.g. a transient applescript read race returning stale/empty HTML) no longer rewrites the Archive note to a header-only stub and destroys handoff history. It now aborts with a non-zero exit on 0 entries from a substantive source, no-ops when entries are within the keep window, and rewrites only on genuine overflow. Added regression tests for promote / no-op / fail-closed / header-only cases.
+- `consolidate_archive.py`: preserve the canonical Archive header on rebuild and require `--episodic-dir` so promoted entries are never silently dropped.
+
 ## 1.4.0 - 2026-05-29
 
 ### Added
