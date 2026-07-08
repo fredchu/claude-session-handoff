@@ -70,9 +70,13 @@ def run_applescript(script: str, attempts=3, base_delay=0.3) -> str:
 # Group 2: optional prefix token before [agent] (non-greedy, does not consume '[')
 # Group 3: agent name inside [...]
 # Group 4: summary text after "—"
-# Apple Notes injects an extra <br> before </div> on round-trip, so accept either form.
-_ENTRY_HEADER_RE = re.compile(
-    r'<div><b>(\d{4}/\d{2}/\d{2})\s*([^\[]*?)\s*\[([^\]]+)\]\s*—\s*([^<]+)</b>(?:<br\s*/?>)?</div>'
+# Apple Notes round-trip 會把粗體 header 切碎成多段 <b> 並在 CJK 括號外包
+# <font face=".CJKSymbolsFallbackTC-Bold">（2026-07-08 實測），所以不能要求整個
+# header 落在單一 <b> 內。改為逐 <div> 去 tag 後比對純文字。
+_DIV_RE = re.compile(r'<div>(.*?)</div>', re.S)
+_TAG_RE = re.compile(r'<[^>]+>')
+_ENTRY_TEXT_RE = re.compile(
+    r'^(\d{4}/\d{2}/\d{2})\s*(.*?)\s*\[\s*([^\]]+?)\s*\]\s*—\s*(.+)$'
 )
 
 
@@ -88,14 +92,21 @@ def parse_archive_entries(archive_html: str) -> list:
 
     Returns list of dicts with keys: date, agent, summary, raw.
     """
-    header_matches = list(_ENTRY_HEADER_RE.finditer(archive_html))
+    header_matches = []
+    for dm in _DIV_RE.finditer(archive_html):
+        inner = dm.group(1)
+        if '<b>' not in inner:
+            continue  # header 一定帶粗體；避免誤認內文行
+        text = _TAG_RE.sub('', inner).replace(' ', ' ').replace('\xa0', ' ').strip()
+        tm = _ENTRY_TEXT_RE.match(text)
+        if tm:
+            header_matches.append((dm.start(), tm))
     if not header_matches:
         return []
 
     entries = []
-    for i, m in enumerate(header_matches):
-        start = m.start()
-        end = header_matches[i + 1].start() if i + 1 < len(header_matches) else len(archive_html)
+    for i, (start, m) in enumerate(header_matches):
+        end = header_matches[i + 1][0] if i + 1 < len(header_matches) else len(archive_html)
         raw = archive_html[start:end]
         entries.append({
             "date": m.group(1),
