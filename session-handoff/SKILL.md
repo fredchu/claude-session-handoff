@@ -138,7 +138,7 @@ python3 scripts/applescript_notes.py dedup --title "Session Handoff — {AgentID
 
 1. **Generate weekly report** → save to memory/episodic directory（按 ISO week 分組老 entries）
 2. **Distill patterns** → scan Archive for recurring cross-agent issues
-3. **Clean Archive** → 用 `python3 scripts/consolidate_archive.py --apply --keep 5 --episodic-dir /Users/fredchu/.claude/projects/-Users-fredchu-Documents-For-Claude/memory/episodic` 執行：歸檔老 entries 到 episodic，Archive 留最新 5 條，自動透過 `applescript_notes.py` 寫回 Apple Notes
+3. **Clean Archive** → 用 `python3 scripts/consolidate_archive.py --apply --keep 5 --episodic-dir /Users/fredchu/.agents/memory/episodic` 執行：歸檔老 entries 到 episodic，Archive 留最新 5 條，自動透過 `applescript_notes.py` 寫回 Apple Notes
 
 ### Phase 4: Lesson Extraction (Session 回顧)
 
