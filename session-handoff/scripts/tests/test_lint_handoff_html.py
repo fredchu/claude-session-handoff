@@ -1,48 +1,57 @@
+import datetime as dt
+import pathlib
 import subprocess
 import sys
-import pathlib
+
+from markdown_storage import render_markdown
 
 SCRIPT = pathlib.Path(__file__).parent.parent / "lint_handoff_html.py"
 
 
-def run_lint(html_string, extra_args=None):
-    args = [sys.executable, str(SCRIPT), "--html-string", html_string]
-    if extra_args:
-        args += extra_args
-    return subprocess.run(args, capture_output=True, text=True)
+def document(body="hello", **overrides):
+    metadata = {
+        "schema_version": 1,
+        "kind": "shared",
+        "agent": "Mini CC",
+        "updated_at": "2026-07-17T10:00:00+08:00",
+    }
+    metadata.update(overrides)
+    return render_markdown(metadata, body)
 
 
-def test_valid_html():
-    r = run_lint("<div><b>Hello</b></div>")
-    assert r.returncode == 0
-    assert "OK:" in r.stdout
+def run_lint(markdown, extra_args=None):
+    args = [sys.executable, str(SCRIPT), f"--markdown-string={markdown}"]
+    return subprocess.run(args + (extra_args or []), capture_output=True, text=True)
 
 
-def test_forbidden_p_tag():
-    r = run_lint("<div><p>bad</p></div>")
-    assert r.returncode == 1
-    assert "ERROR" in r.stdout
+def test_valid_markdown():
+    result = run_lint(document(), ["--kind", "shared"])
+    assert result.returncode == 0
+    assert "OK: 5 chars" in result.stdout
 
 
-def test_forbidden_font_size():
-    r = run_lint('<div style="font-size: 14px">bad</div>')
-    assert r.returncode == 1
-    assert "ERROR" in r.stdout
+def test_empty_frontmatter_fails():
+    result = run_lint("---\n---\ncontent")
+    assert result.returncode == 1
+    assert "empty frontmatter" in result.stdout
+
+
+def test_corrupt_frontmatter_fails():
+    result = run_lint("---\nschema_version: nope\n---\ncontent")
+    assert result.returncode == 1
+    assert "schema_version must be an integer" in result.stdout
 
 
 def test_exceeds_max_chars():
-    long_text = "A" * 200
-    r = run_lint(f"<div>{long_text}</div>", ["--max-chars", "10"])
-    assert r.returncode == 1
-    assert "ERROR" in r.stdout
+    result = run_lint(document("A" * 20), ["--max-chars", "10"])
+    assert result.returncode == 1
+    assert "exceeds limit" in result.stdout
 
 
-def test_strict_disallowed_tag():
-    r = run_lint("<div><table><tr><td>bad</td></tr></table></div>", ["--strict"])
-    assert r.returncode == 1
-    assert "strict" in r.stdout
+def test_stale_timestamp_is_marked():
+    from lint_handoff_html import lint_markdown
 
-
-def test_strict_valid_html():
-    r = run_lint("<div><b>OK</b></div><ul><li>item</li></ul>", ["--strict"])
-    assert r.returncode == 0
+    now = dt.datetime(2026, 7, 17, 20, 0, tzinfo=dt.timezone(dt.timedelta(hours=8)))
+    errors, warnings, _ = lint_markdown(document(), stale_after_hours=4, now=now)
+    assert errors == []
+    assert warnings == ["WARNING: stale handoff from 2026-07-17T10:00:00+08:00 (10.0h old)"]

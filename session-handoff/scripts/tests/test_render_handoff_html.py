@@ -1,80 +1,52 @@
 import json
-import os
+import pathlib
 import subprocess
 import sys
-import tempfile
-import pathlib
+
+from markdown_storage import parse_markdown
 
 SCRIPT = pathlib.Path(__file__).parent.parent / "render_handoff_html.py"
 
 
-def run_render(data):
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False, encoding="utf-8"
-    ) as f:
-        json.dump(data, f, ensure_ascii=False)
-        fname = f.name
-    try:
-        result = subprocess.run(
-            [sys.executable, str(SCRIPT), "--input-json", fname],
-            capture_output=True,
-            text=True,
-        )
-    finally:
-        os.unlink(fname)
-    return result
+def run_render(tmp_path, data, output=None):
+    source = tmp_path / "input.json"
+    source.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+    args = [sys.executable, str(SCRIPT), "--input-json", str(source)]
+    if output:
+        args += ["--output-file", str(output)]
+    return subprocess.run(args, capture_output=True, text=True)
 
 
-def test_full_input():
-    data = {
-        "title": "Test",
-        "updated": "2026/04/29",
-        "sections": [{"header": "S1", "items": ["item1", "item2"]}],
+def valid_data():
+    return {
+        "kind": "active",
+        "agent": "Pro CC",
+        "updated_at": "2026-07-17T10:00:00+08:00",
+        "title": "Current work",
+        "sections": [{"header": "Next", "items": ["item 1", "item 2"]}],
     }
-    r = run_render(data)
-    assert r.returncode == 0
-    assert "<div><b>S1</b></div>" in r.stdout
-    assert "<li>item1</li>" in r.stdout
-    assert "<li>item2</li>" in r.stdout
 
 
-def test_empty_sections():
-    data = {"title": "Test", "updated": "2026/04/29", "sections": []}
-    r = run_render(data)
-    assert r.returncode == 0
-    assert "<div>Test</div>" in r.stdout
+def test_renders_schema_valid_markdown(tmp_path):
+    result = run_render(tmp_path, valid_data())
+    assert result.returncode == 0
+    metadata, body = parse_markdown(result.stdout, "active")
+    assert metadata["agent"] == "Pro CC"
+    assert "# Current work" in body
+    assert "## Next\n- item 1\n- item 2" in body
 
 
-def test_special_chars_escaped():
-    data = {
-        "title": "A & B",
-        "updated": "2026/04/29",
-        "sections": [{"header": "H <tag>", "items": ["x > y"]}],
-    }
-    r = run_render(data)
-    assert r.returncode == 0
-    assert "&amp;" in r.stdout
-    assert "&lt;tag&gt;" in r.stdout
-    assert "x &gt; y" in r.stdout
+def test_output_file_is_markdown(tmp_path):
+    output = tmp_path / "Active" / "Pro CC.md"
+    result = run_render(tmp_path, valid_data(), output)
+    assert result.returncode == 0
+    metadata, _ = parse_markdown(output.read_text(encoding="utf-8"), "active")
+    assert metadata["schema_version"] == 1
 
 
-def test_output_file():
-    data = {"title": "Out", "updated": "2026/04/29", "sections": []}
-    with tempfile.NamedTemporaryFile(
-        mode="w", suffix=".json", delete=False, encoding="utf-8"
-    ) as jf:
-        json.dump(data, jf)
-        json_file = jf.name
-    with tempfile.NamedTemporaryFile(suffix=".html", delete=False) as hf:
-        html_file = hf.name
-    try:
-        r = subprocess.run(
-            [sys.executable, str(SCRIPT), "--input-json", json_file, "--output-file", html_file],
-            capture_output=True, text=True,
-        )
-        assert r.returncode == 0
-        content = pathlib.Path(html_file).read_text(encoding="utf-8")
-        assert "<div>Out</div>" in content
-    finally:
-        os.unlink(json_file)
-        os.unlink(html_file)
+def test_missing_schema_field_fails(tmp_path):
+    data = valid_data()
+    del data["agent"]
+    result = run_render(tmp_path, data)
+    assert result.returncode == 2
+    assert "missing frontmatter fields: agent" in result.stderr
