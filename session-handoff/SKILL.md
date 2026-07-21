@@ -127,7 +127,7 @@ find "$ROOT" -name "* 2.md" -o -name "*.icloud" | head
 
 1. **Generate weekly report** → save to memory/episodic directory（按 ISO week 分組老 entries）
 2. **Distill patterns** → scan Archive for recurring cross-agent issues
-3. **Clean Archive** → `python3 scripts/consolidate_archive.py --apply --keep 5 --archive-dir "$ROOT/Archive" --episodic-dir /Users/fredchu/.agents/memory/episodic`
+3. **Clean Archive** → `python3 scripts/consolidate_archive.py --keep 5 --archive-dir "$ROOT/Archive" --episodic-dir /Users/fredchu/.agents/memory/episodic`
 
 ### Phase 4: Lesson Extraction (Session 回顧)
 
