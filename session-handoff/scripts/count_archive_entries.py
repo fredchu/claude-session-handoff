@@ -8,12 +8,14 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from _utils import force_utf8_stdio
 from markdown_storage import StorageError, scan_archive_entries
 
 DEFAULT_THRESHOLD = 5
 
 
 def main() -> None:
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Count Archive Markdown entries and check consolidation threshold"
     )

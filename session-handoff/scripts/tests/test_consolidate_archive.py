@@ -1,3 +1,4 @@
+import os
 import pathlib
 import subprocess
 import sys
@@ -121,3 +122,39 @@ def test_read_failure_fails_before_destination_write(tmp_path, monkeypatch, caps
     assert exc.value.code == 1
     assert "simulated read failure" in capsys.readouterr().err
     assert not episodic.exists()
+
+
+def test_episodic_dir_expands_tilde_under_sandboxed_home(tmp_path):
+    root = tmp_path / "store"
+    sandboxed_home = tmp_path / "home"
+    cwd = tmp_path / "cwd"
+    cwd.mkdir()
+    add_entries(root, 6)
+    env = os.environ.copy()
+    if os.name == "nt":
+        env["USERPROFILE"] = str(sandboxed_home)
+        env["HOMEDRIVE"] = sandboxed_home.drive
+        env["HOMEPATH"] = str(sandboxed_home)[len(sandboxed_home.drive):]
+    else:
+        env["HOME"] = str(sandboxed_home)
+
+    result = subprocess.run(
+        [
+            sys.executable,
+            str(SCRIPT),
+            "--archive-dir",
+            str(root / "Archive"),
+            "--episodic-dir",
+            "~/episodic-target",
+            "--keep",
+            "5",
+        ],
+        capture_output=True,
+        text=True,
+        cwd=cwd,
+        env=env,
+    )
+
+    assert result.returncode == 0, result.stderr
+    assert len(list((sandboxed_home / "episodic-target").glob("*/*.md"))) == 1
+    assert not (cwd / "~").exists()

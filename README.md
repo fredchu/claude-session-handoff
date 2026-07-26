@@ -72,6 +72,8 @@ mkdir -p ~/.agents/handoff
 
 ### 3. Configure the SessionStart hook
 
+#### macOS / Linux
+
 Copy the example hook and set your agent name and root:
 
 ```bash
@@ -87,15 +89,50 @@ Add to `.claude/settings.json`:
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "~/.claude/hooks/session-start.sh"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start.sh"
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-The hook calls `handoff_cli.py session-start`, which prints the private shard plus every agent's shared shard (with a `⚠️ stale` marker on shards older than `--stale-days`, default 14).
+`chmod` is a Unix-only step.
+
+#### Windows
+
+Requires Python 3.9+ on `PATH` or available through the `py` launcher.
+
+In File Explorer, copy `hooks/session-start.ps1` to `%USERPROFILE%\.claude\hooks\session-start.ps1`, then edit `$AgentId` and `$HandoffRoot` in the copied script.
+
+Add this to `.claude/settings.json`:
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/<you>/.claude/hooks/session-start.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+Replace `<you>` with your Windows username. Use forward slashes in this command. Agent IDs may contain letters, digits, spaces, and hyphens. Avoid `< > : " / \ | ? *`, trailing dots or spaces, and reserved device names (`CON`, `PRN`, `AUX`, `NUL`, `COM1`–`COM9`, `LPT1`–`LPT9`).
+
+The platform hook calls `handoff_cli.py session-start`, which prints the private shard plus every agent's shared shard (with a `⚠️ stale` marker on shards older than `--stale-days`, default 14).
 
 ### 4. Add config and trigger rules to CLAUDE.md
 
@@ -105,6 +142,7 @@ Add to your user-level `CLAUDE.md` (`~/.claude/CLAUDE.md`):
 ## Session Handoff Config
 - Agent ID: Main
 - Handoff root: ~/.agents/handoff
+- Episodic dir: ~/.agents/memory/episodic
 - Other Agents: (leave empty for single-agent mode)
 - Private budget: 1500 chars
 - Shared budget: 1000 chars
@@ -167,6 +205,10 @@ Shards are kept compact to minimize token usage when injected at session start:
 - Schema-validated frontmatter — corruption fails loudly
 - No AppleScript flakiness, no HTML round-trip mangling (Apple Notes used to shred CJK bold headers into fragments)
 - Cross-platform: the storage scripts are stdlib-only Python
+
+## Caveats
+
+Archive creation uses hardlinks (`os.link`), which can fail on OneDrive placeholder files or non-NTFS volumes. Atomic replacement (`os.replace`) can raise `PermissionError` while a sync client locks the target, so OneDrive is conditionally supported. On Windows, setting `PYTHONUTF8=1` system-wide is recommended. The `2>>` diagnostic log redirect uses different encodings in Windows PowerShell 5.1 and PowerShell 7; the log is diagnostic-only.
 
 ## Migrating from Apple Notes (v1.x)
 

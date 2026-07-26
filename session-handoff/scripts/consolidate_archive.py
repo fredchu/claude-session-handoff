@@ -10,6 +10,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from _utils import force_utf8_stdio
 from markdown_storage import StorageError, scan_archive_entries
 
 DEFAULT_KEEP = 5
@@ -48,6 +49,7 @@ def _move_without_overwrite(source: Path, destination: Path) -> None:
 
 
 def main() -> None:
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(
         description="Move old immutable Archive entries into episodic weekly directories"
     )
@@ -64,7 +66,8 @@ def main() -> None:
         parser.error("--keep must be non-negative")
 
     try:
-        archive_dir = Path(args.archive_dir)
+        archive_dir = Path(args.archive_dir).expanduser()
+        episodic_dir = Path(args.episodic_dir).expanduser()
         if archive_dir.name != "Archive":
             raise StorageError("--archive-dir must point to the Archive directory")
         entries = scan_archive_entries(archive_dir.parent)
@@ -72,7 +75,7 @@ def main() -> None:
         plan = [
             (
                 entry["path"],
-                Path(args.episodic_dir)
+                episodic_dir
                 / get_iso_week_key(entry["metadata"]["updated_at"])
                 / entry["path"].name,
             )

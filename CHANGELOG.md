@@ -1,3 +1,21 @@
+## 2.1.0 - 2026-07-26
+
+### Added
+- PowerShell `SessionStart` hook for Windows.
+- Windows installation instructions and OneDrive/filesystem caveats.
+- `Episodic dir` configuration key.
+- UTF-8 encoding regression tests.
+
+### Fixed
+- Explicit UTF-8 reads for `handoff_cli.py` body files.
+- UTF-8 stdout/stderr on all Markdown CLI entry points.
+- Tilde expansion for both `consolidate_archive.py` directory arguments.
+- Invalid two-level hook JSON in README examples.
+
+### Changed
+- De-personalized `SKILL.md` and made Phase 0 sync-layer-aware.
+- `session-start.sh` now resolves Python through `PYTHON_BIN`.
+
 ## 2.0.0 - 2026-07-26
 
 ### Breaking

@@ -1,3 +1,21 @@
+## 2.1.0 - 2026-07-26
+
+### 新增
+- Windows PowerShell `SessionStart` hook。
+- Windows 安裝說明，以及 OneDrive／檔案系統注意事項。
+- `Episodic dir` 設定鍵。
+- UTF-8 encoding 回歸測試。
+
+### 修復
+- `handoff_cli.py` body 檔改為明確使用 UTF-8 讀取。
+- 所有 Markdown CLI 入口的 stdout／stderr 統一使用 UTF-8。
+- `consolidate_archive.py` 的兩個目錄參數都會展開 tilde。
+- README 範例中無效的兩層 hook JSON。
+
+### 變更
+- `SKILL.md` 移除個人化內容，Phase 0 改為依 sync layer 選擇檢查。
+- `session-start.sh` 改由 `PYTHON_BIN` 解析 Python。
+
 ## 2.0.0 - 2026-07-26
 
 ### 重大變更

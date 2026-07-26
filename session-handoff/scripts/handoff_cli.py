@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
+from _utils import force_utf8_stdio
 from markdown_storage import (
     StorageError,
     compose_session_start,
@@ -28,13 +29,13 @@ def _now() -> str:
 
 
 def cmd_write(args: argparse.Namespace) -> None:
-    body = Path(args.body_file).read_text()
+    body = Path(args.body_file).read_text(encoding="utf-8")
     path = write_shard(args.root, args.kind, args.agent, args.agent, body, args.updated_at or _now())
     print(f"wrote {path}")
 
 
 def cmd_archive(args: argparse.Namespace) -> None:
-    body = Path(args.body_file).read_text()
+    body = Path(args.body_file).read_text(encoding="utf-8")
     path, created = write_archive_entry(
         args.root, args.agent, args.session_id, args.slug, body, args.updated_at or _now()
     )
@@ -66,6 +67,7 @@ def cmd_session_start(args: argparse.Namespace) -> None:
 
 
 def main() -> None:
+    force_utf8_stdio()
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 

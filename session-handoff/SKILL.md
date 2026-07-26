@@ -11,8 +11,8 @@ Claude Code sessions are stateless. When a session ends, all context is lost. Th
 
 This skill solves that by writing structured Markdown handoff shards to a filesystem store (an Obsidian vault) before each session ends, and reading them back at the start of the next session via a SessionStart hook.
 
-> **2026-07-21 cutover**：儲存後端已從 Apple Notes 切換為 Obsidian vault「Agent 工作區」的
-> `handoff/` 目錄（iCloud 同步）。Apple Notes 舊 note 已凍結並匯出歸檔，不要再寫。
+> **2026-07-21 cutover**：儲存後端已從 Apple Notes 切換為檔案系統的 Markdown
+> handoff root。Apple Notes 舊 note 已凍結並匯出歸檔，不要再寫。
 
 ## Configuration
 
@@ -23,7 +23,8 @@ Read the user's CLAUDE.md for a `Session Handoff` config section. If found, use 
 ```markdown
 ## Session Handoff Config
 - Agent ID: Pro CC
-- Handoff root: ~/Library/Mobile Documents/iCloud~md~obsidian/Documents/Agent 工作區/handoff
+- Handoff root: ~/.agents/handoff
+- Episodic dir: ~/.agents/memory/episodic
 - Other Agents: Mini CC
 - Private budget: 1500 chars
 - Shared budget: 1000 chars
@@ -34,7 +35,8 @@ Read the user's CLAUDE.md for a `Session Handoff` config section. If found, use 
 | Setting | Default | How it's determined |
 |---------|---------|---------------------|
 | Agent ID | Machine hostname | `hostname -s` |
-| Handoff root | `~/.agents/handoff` | Fixed fallback（本機實際用 vault 路徑，見上） |
+| Handoff root | `~/.agents/handoff` | Fixed fallback |
+| Episodic dir | `~/.agents/memory/episodic` | Fixed fallback |
 | Other Agents | _(none — single-agent mode)_ | |
 | Private budget | 1500 chars | |
 | Shared budget | 1000 chars | |
@@ -89,13 +91,19 @@ The budget exists because these shards get injected into every session start. Ke
 ### Phase 0: Storage Sanity Check
 
 ```bash
-ROOT="/Users/fredchu/Library/Mobile Documents/iCloud~md~obsidian/Documents/Agent 工作區/handoff"
-find "$ROOT" -name "* 2.md" -o -name "*.icloud" | head
+ROOT="<your handoff root from config>"
 ```
 
-- 無輸出 → proceed。
-- `* 2.md` 出現 → iCloud 衝突副本，先人工比對合併再寫（不要直接刪）。
-- `*.icloud` 出現 → 檔案被 evict 未下載，先 `brctl download` 該路徑再讀寫。
+只執行與目前 sync layer 相符的 row：
+
+| Sync layer | Check and action |
+|------------|------------------|
+| iCloud（macOS） | 找 `* 2.md` 衝突副本與 evicted `.icloud` 檔；衝突副本先人工比對合併（不要直接刪），placeholder 先用 `brctl download <path>` 下載 |
+| OneDrive（Windows） | 找 `<name>-<ComputerName>.md` 衝突副本並人工比對；OneDrive 僅 conditionally supported，見 README caveats |
+| Syncthing | 找 `.sync-conflict-*` 檔並人工比對合併 |
+| Plain local directory | Skip this phase |
+
+對應檢查無輸出時 proceed。
 
 ### Phase 1: Archive (Preserve Old Content)
 
@@ -125,9 +133,10 @@ find "$ROOT" -name "* 2.md" -o -name "*.icloud" | head
 
 **觸發機制**：Phase 2 step 4 偵測到 `should_consolidate: true` 直接進此 Phase。**不問用戶**（用戶 CLAUDE.md 規則：「Weekly Consolidation 達門檻時直接執行，不需確認」）。
 
-1. **Generate weekly report** → save to memory/episodic directory（按 ISO week 分組老 entries）
+1. **Generate weekly report** → save to configured `Episodic dir`（按 ISO week 分組老 entries）
 2. **Distill patterns** → scan Archive for recurring cross-agent issues
-3. **Clean Archive** → `python3 scripts/consolidate_archive.py --keep 5 --archive-dir "$ROOT/Archive" --episodic-dir /Users/fredchu/.agents/memory/episodic`
+3. **Clean Archive** → 先把 configured `Episodic dir` resolve 成 absolute path，再執行
+   `python3 scripts/consolidate_archive.py --keep 5 --archive-dir "$ROOT/Archive" --episodic-dir "$EPISODIC_DIR"`
 
 ### Phase 4: Lesson Extraction (Session 回顧)
 
@@ -225,13 +234,13 @@ Session Handoff — Shared
 - Never touch another agent's shards
 - Body 一律台灣繁體中文 Markdown；技術名詞保留原文
 - 所有寫入（Active/Shared/Archive）一律走 `scripts/handoff_cli.py`；不要手寫 frontmatter、不要直接 Write shard 檔、絕不再寫 Apple Notes handoff note
-- Phase 0 sanity check 發現 iCloud 衝突副本（`* 2.md`）→ 先人工合併再寫
+- Phase 0 只跑符合目前 sync layer 的檢查；發現衝突副本時先人工合併再寫
 
 ## Prerequisites
 
 - **Python 3** — runs the deterministic helper scripts（stdlib only）
-- **A filesystem handoff root** — 本機用 Obsidian vault「Agent 工作區」`handoff/`（iCloud 同步）；任何可寫目錄皆可
-- **SessionStart hook** — to inject handoff content at session start（本機：`~/.claude/scripts/fetch-handoff.sh` 呼叫 `handoff_cli.py session-start`）
+- **A filesystem handoff root** — any writable local or synced directory
+- **SessionStart hook** — use `hooks/session-start.sh` or `hooks/session-start.ps1` as the platform template to inject handoff content at session start
 
 ## Single-Agent Mode
 

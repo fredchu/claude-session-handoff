@@ -72,6 +72,8 @@ mkdir -p ~/.agents/handoff
 
 ### 3. 設定 SessionStart hook
 
+#### macOS / Linux
+
 複製範例 hook 腳本，設定你的 agent 名稱和 root：
 
 ```bash
@@ -87,15 +89,50 @@ chmod +x ~/.claude/hooks/session-start.sh
   "hooks": {
     "SessionStart": [
       {
-        "type": "command",
-        "command": "~/.claude/hooks/session-start.sh"
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/session-start.sh"
+          }
+        ]
       }
     ]
   }
 }
 ```
 
-hook 會呼叫 `handoff_cli.py session-start`，印出私有 shard 加上所有 agent 的共有 shard（超過 `--stale-days`（預設 14 天）未更新的 shard 會標 `⚠️ stale`）。
+`chmod` 只適用於 Unix。
+
+#### Windows
+
+需要 Python 3.9+，可從 `PATH` 呼叫或透過 `py` launcher 使用。
+
+在檔案總管中，把 `hooks/session-start.ps1` 複製到 `%USERPROFILE%\.claude\hooks\session-start.ps1`，再編輯複本裡的 `$AgentId` 和 `$HandoffRoot`。
+
+加入 `.claude/settings.json`：
+
+```json
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "powershell.exe -NoProfile -ExecutionPolicy Bypass -File \"C:/Users/<you>/.claude/hooks/session-start.ps1\""
+          }
+        ]
+      }
+    ]
+  }
+}
+```
+
+請把 `<you>` 換成你的 Windows 使用者名稱，這段 command 一律使用正斜線。Agent ID 可使用英文字母、數字、空格和連字號；避免 `< > : " / \ | ? *`、結尾的句點或空格，以及保留裝置名稱（`CON`、`PRN`、`AUX`、`NUL`、`COM1`–`COM9`、`LPT1`–`LPT9`）。
+
+各平台的 hook 都會呼叫 `handoff_cli.py session-start`，印出私有 shard 加上所有 agent 的共有 shard（超過 `--stale-days`（預設 14 天）未更新的 shard 會標 `⚠️ stale`）。
 
 ### 4. 在 CLAUDE.md 加入設定和觸發規則
 
@@ -105,6 +142,7 @@ hook 會呼叫 `handoff_cli.py session-start`，印出私有 shard 加上所有 
 ## Session Handoff Config
 - Agent ID: Main
 - Handoff root: ~/.agents/handoff
+- Episodic dir: ~/.agents/memory/episodic
 - Other Agents:（留空代表單 agent 模式）
 - Private budget: 1500 chars
 - Shared budget: 1000 chars
@@ -167,6 +205,10 @@ shard 保持精簡，注入 session 時不浪費 token：
 - frontmatter 有 schema 驗證——壞掉會大聲報錯
 - 沒有 AppleScript 的不穩定、沒有 HTML round-trip 摧殘（Apple Notes 曾把 CJK 粗體標題切碎成多段）
 - 跨平台：儲存腳本是純標準庫 Python
+
+## 注意事項
+
+Archive 建立會使用 hardlink（`os.link`），遇到 OneDrive placeholder 檔或非 NTFS volume 時可能失敗。若同步軟體正在鎖定目標，atomic replace（`os.replace`）可能拋出 `PermissionError`，因此 OneDrive 目前屬於條件式支援。Windows 建議在系統層級設定 `PYTHONUTF8=1`。`2>>` 診斷 log redirect 在 Windows PowerShell 5.1 和 PowerShell 7 使用的 encoding 不同；該 log 只供診斷。
 
 ## 從 Apple Notes 遷移（v1.x）
 

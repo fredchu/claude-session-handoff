@@ -8,6 +8,8 @@
 #   2. chmod +x this file
 #   3. Add to .claude/settings.json under hooks.SessionStart
 
+export PYTHONUTF8=1
+
 # ---- Configuration ----
 AGENT_ID="Main"                        # Your agent name (e.g., "Pro CC", "Mini CC", "Main")
 HANDOFF_ROOT="$HOME/.agents/handoff"   # Handoff store root (e.g., a folder in an Obsidian vault)
@@ -23,7 +25,8 @@ fi
 # shared shard ({root}/Shared/*.md), truncated to the char budgets. Shards not
 # updated within --stale-days get a ⚠️ stale marker. Errors go to a log, never
 # to stdout (stdout is injected as session context).
-/usr/bin/python3 "$CLI" session-start \
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+"$PYTHON_BIN" "$CLI" session-start \
   --root "$HANDOFF_ROOT" \
   --agent "$AGENT_ID" \
   --active-budget 1500 \

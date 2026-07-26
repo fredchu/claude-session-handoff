@@ -10,6 +10,18 @@ FORBIDDEN_ATTRS_REGEX = r'font-size\s*:'
 TRANSIENT_OSASCRIPT_ERRORS = ("-1719", "-1712", "-1700", "execution error", "索引錯誤")
 
 
+def force_utf8_stdio() -> None:
+    """Reconfigure stdout/stderr to UTF-8 (Windows pipes default to the ANSI codepage)."""
+    import sys
+
+    for stream in (sys.stdout, sys.stderr):
+        if stream is not None and hasattr(stream, "reconfigure"):
+            try:
+                stream.reconfigure(encoding="utf-8")
+            except (ValueError, OSError):
+                pass
+
+
 class _TextExtractor(HTMLParser):
     def __init__(self):
         super().__init__()
