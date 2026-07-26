@@ -1,13 +1,14 @@
 {
   "name": "claude-session-handoff",
-  "version": "1.4.1",
-  "description": "A Claude Code skill for persistent session memory via Apple Notes — multi-agent, three-tier architecture",
+  "version": "2.0.0",
+  "description": "A Claude Code skill for persistent session memory via Markdown handoff shards (Obsidian-vault friendly) — multi-agent, three-tier architecture",
   "keywords": [
     "claude-code",
     "skill",
     "session-handoff",
     "memory",
-    "apple-notes"
+    "markdown",
+    "obsidian"
   ],
   "author": "Fred Chu",
   "license": "MIT",

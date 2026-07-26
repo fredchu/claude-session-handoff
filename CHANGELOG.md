@@ -1,3 +1,22 @@
+## 2.0.0 - 2026-07-26
+
+### Breaking
+- **Storage backend switched from Apple Notes to plain Markdown files** in a filesystem handoff root (any writable directory; an iCloud-synced Obsidian vault works well). Existing Apple Notes handoff notes should be exported once via `export_notes_to_markdown.py` and then frozen — the skill no longer writes to Apple Notes.
+- Shared state is now **per-agent shards** (`Shared/{AgentID}.md`) merged by each agent's SessionStart hook, replacing the single shared note. No agent ever writes another agent's files.
+- Archive is now **one file per session** under `Archive/{YYYY}/` with YAML frontmatter, replacing the single rolling Archive note.
+
+### Added
+- `markdown_storage.py` — storage layer with frontmatter generation, schema validation (`schema_version / kind / agent / updated_at`), atomic writes, and path-escape protection; malformed files fail loudly. Ships with a pytest suite.
+- `handoff_cli.py` — the single write entry point (`write` / `archive` / `session-start`). `session-start` prints the private shard plus every agent's shared shard with char-budget truncation and a `⚠️ stale` marker for shards older than `--stale-days` (default 14).
+- `export_notes_to_markdown.py` — one-time migration of v1.x Apple Notes content into the Markdown store.
+- Phase 0 storage sanity check for iCloud pitfalls: conflict copies (`* 2.md`) and evicted (`.icloud`) files.
+
+### Changed
+- `count_archive_entries.py` / `consolidate_archive.py` ported to the Markdown backend; consolidation now executes by default (`--dry-run` to preview — the old `--apply` flag is gone).
+- Episodic (long-term) output moved to `~/.agents/memory/episodic`.
+- Example hook `hooks/session-start.sh` rewritten to call `handoff_cli.py session-start` (the AppleScript reader and dedup sweep are obsolete on the Markdown backend).
+- README (en + zh-TW) rewritten for the Markdown/Obsidian architecture.
+
 ## 1.4.1 - 2026-06-15
 
 ### Fixed

@@ -1,3 +1,22 @@
+## 2.0.0 - 2026-07-26
+
+### 重大變更
+- **儲存後端從 Apple Notes 切換為純 Markdown 檔案**，存放於檔案系統的 handoff root（任何可寫目錄皆可；作者用 iCloud 同步的 Obsidian vault）。既有的 Apple Notes handoff 筆記請用 `export_notes_to_markdown.py` 做一次性匯出後凍結——skill 不再寫入 Apple Notes。
+- 共有狀態改為**每 agent 一片 shard**（`Shared/{AgentID}.md`），由各 agent 的 SessionStart hook 合併讀取，取代原本的單一共有筆記。任何 agent 都不會寫別的 agent 的檔案。
+- Archive 改為 **每次 session 一個檔案**，存於 `Archive/{YYYY}/` 並帶 YAML frontmatter，取代原本單一滾動的 Archive 筆記。
+
+### 新增
+- `markdown_storage.py` — 儲存層，負責 frontmatter 生成、schema 驗證（`schema_version / kind / agent / updated_at`）、atomic write、路徑逃逸防護；格式壞掉會大聲報錯。附 pytest 測試套件。
+- `handoff_cli.py` — 唯一寫入口（`write` / `archive` / `session-start`）。`session-start` 印出私有 shard 加所有 agent 的共有 shard，含字元預算截斷，超過 `--stale-days`（預設 14 天）未更新的 shard 標 `⚠️ stale`。
+- `export_notes_to_markdown.py` — v1.x Apple Notes 內容一次性遷移進 Markdown 儲存區。
+- Phase 0 儲存健檢，防 iCloud 陷阱：衝突副本（`* 2.md`）與被 evict 的（`.icloud`）檔案。
+
+### 變更
+- `count_archive_entries.py` / `consolidate_archive.py` 移植到 Markdown 後端；consolidation 改為預設直接執行（`--dry-run` 才是預覽——舊的 `--apply` 旗標移除）。
+- Episodic（長期）輸出搬到 `~/.agents/memory/episodic`。
+- 範例 hook `hooks/session-start.sh` 改寫為呼叫 `handoff_cli.py session-start`（AppleScript 讀取器與去重掃描在 Markdown 後端已不需要）。
+- README（英文 + 繁中）全面改寫為 Markdown/Obsidian 架構。
+
 ## 1.4.1 - 2026-06-15
 
 ### 修復
