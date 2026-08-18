@@ -28,14 +28,23 @@ def _now() -> str:
     return dt.datetime.now().astimezone().isoformat()
 
 
+def _read_body(body_file: str) -> str:
+    # 空 body 一律 fail-loud：上游抽 frontmatter body 的 sed/awk 出錯時，
+    # 寧可擋下也不要把空殼寫進 Active/Archive（2026-08-18 空 body 入檔事故）
+    body = Path(body_file).read_text(encoding="utf-8")
+    if not body.strip():
+        raise SystemExit(f"refusing to write empty body from {body_file}")
+    return body
+
+
 def cmd_write(args: argparse.Namespace) -> None:
-    body = Path(args.body_file).read_text(encoding="utf-8")
+    body = _read_body(args.body_file)
     path = write_shard(args.root, args.kind, args.agent, args.agent, body, args.updated_at or _now())
     print(f"wrote {path}")
 
 
 def cmd_archive(args: argparse.Namespace) -> None:
-    body = Path(args.body_file).read_text(encoding="utf-8")
+    body = _read_body(args.body_file)
     path, created = write_archive_entry(
         args.root, args.agent, args.session_id, args.slug, body, args.updated_at or _now()
     )
